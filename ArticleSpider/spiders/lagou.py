@@ -16,7 +16,7 @@ conn = MySQLdb.connect(host="127.0.0.1", user="root", passwd="123456", db="mptes
 cursor = conn.cursor()
 driver = webdriver.Chrome()
 
-
+#selenium处理方法，点击对应的位置，并返回评论列表
 def handle_review_list(review_list, id_list, review_data_list, company_url, company_url_id, company_name):
     for review in review_list:
         review_data = dict()
@@ -42,7 +42,7 @@ def handle_review_list(review_list, id_list, review_data_list, company_url, comp
             "div[@class='review-stars clearfix']//span[@class='review-date']//text()").extract_first('')
         review_data_list.append(review_data)
 
-
+#selenium处理方法，点击对应的位置
 def return_new_company_response(request, response):
     if len(response.xpath("//span[@class='text_over']").extract()) > 0:
         time.sleep(1)
@@ -68,13 +68,13 @@ def check_table_url(table, url):
     cursor.execute(check_sql)
     return len(list(cursor)) == 0
 
-
+#判断是否有该面试记录
 def check_comment_in(param):
     check_sql = "select id from lagou_review where id in ({0})".format(",".join(param))
     cursor.execute(check_sql)
     return len(list(cursor)) == len(param)
 
-
+#返回不为200，移除ip
 def delete_ip(response):
     if response.status != 200:
         request = response.request
@@ -85,6 +85,7 @@ def delete_ip(response):
     return True
 
 
+# 获取代理ip类
 get_ip = GetIP()
 
 
@@ -93,6 +94,7 @@ class LagouSpider(CrawlSpider):
     name = 'lagou'
     allowed_domains = ['www.lagou.com']
     start_urls = ['https://www.lagou.com']
+    # 配置爬取的目标规则restrict_xpath限定从哪些位置获取相关的url
     rules = (
         Rule(LinkExtractor(allow=("zhaopin/.*")), callback='parse_zhaopin', follow=True),
         Rule(LinkExtractor(allow=(r'jobs/\d+.html')), callback='parse_job', follow=True),
@@ -105,6 +107,7 @@ class LagouSpider(CrawlSpider):
     def parse_zhaopin(self, response):
         delete_ip(response)
 
+    # 处理公司，主要是通过xpath获取相对应的信息，然后转成item供pipline处理，其中详情会遇到展开点击，使用selenium进行点击
     def parse_company(self, response):
         if delete_ip(response):
             url = response.url
@@ -113,7 +116,7 @@ class LagouSpider(CrawlSpider):
             if match:
                 url = match.group(1)
                 if check_table_url('lagou_company', url):
-                    response = return_new_company_response(response.request,response)
+                    response = return_new_company_response(response.request, response)
                     companyItemLoader = LagouJobItemLoader(item=LagouCompany(), response=response)
                     companyItemLoader.add_value('url', url)
                     companyItemLoader.add_value('url_object_id', get_md5(url))
@@ -158,13 +161,14 @@ class LagouSpider(CrawlSpider):
                     company_item = companyItemLoader.load_item()
                     return company_item
 
+    # 解析拉钩网职位
     def parse_job(self, response):
+        # 返回不为200，删掉该ip
         if delete_ip(response):
-            # 解析拉钩网职位
             url = response.url
-            # 可能会被重定向，被重定向不做处理
             match_re = r'(https://www.lagou.com/jobs/?\d+.html).*$'
             match = re.match(match_re, url)
+            #同理也是通过xpath进行相关数据的获取和利用正则、字符串一些方法来处理拿下来的数据
             if match:
                 url = match.group(1)
                 # 判断数据库是否有该url
@@ -205,7 +209,7 @@ class LagouSpider(CrawlSpider):
                     job_item = jobItemLoader.load_item()
                     return job_item
 
-
+    #一次获取的是评论列表，所以把每个评论项的属性构成一个对象，item则存储这些对象的列表并返回批量插入sql的语句
     def parse_review(self, response):
         if delete_ip(response):
             url = response.url

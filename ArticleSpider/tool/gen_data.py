@@ -23,7 +23,7 @@ def stopwordslist():
     stopwords = [line.strip() for line in open('stop.txt', encoding='UTF-8').readlines()]
     return stopwords
 
-
+#生成文件前判断是否有该文件，没有则新建一个
 def check_path(file):
     if not os.path.exists(file):
         f = open(file, 'w')
@@ -32,6 +32,7 @@ def check_path(file):
 
 class GetData(object):
 
+    #从数据库挑选某一列的数据，加载关键词列表后，用jieba进行切词并统计词频，然后生成相关的wordcloud
     def get_worldcloud(self, column, picture, table, where):
         content = ''
         # 连接所有公司福利介绍
@@ -64,7 +65,7 @@ class GetData(object):
         path = data_store + "\\" + table + '-' + column + ".png"
         check_path(path)
         wordcloud.to_file(path)
-
+    #通过公司表获取城市和相关的薪水生成分段型geo图
     def get_salary_city(self):
         sql = """
         select city,cast(sum((max_salary+min_salary)/2)/count(*) as signed) salary from lagou_job GROUP BY city order by salary desc
@@ -93,6 +94,7 @@ class GetData(object):
         check_path(file)
         geo.render(file)
 
+    #通过对每个城市拥有的公司生产热力分布图
     def get_company_city(self):
         sql = """
          select city,count(distinct url) as company_count from lagou_company GROUP BY city 
@@ -115,7 +117,7 @@ class GetData(object):
         file = data_store + "\\" + "company.html"
         check_path(file)
         geo.render(file)
-
+    #对某个表里的某个列进行统计生成柱状图
     def get_bar(self, table, column, title):
         sql = "select count(*),{0} from {1} group by {2}".format(column,table, column)
         result = cursor.execute(sql)
@@ -131,7 +133,7 @@ class GetData(object):
         file = data_store + "\\" + table + '-' + column + ".html"
         check_path(file)
         bar.render(file)
-
+    #根据职位名统计相关的数据并进行并集操作生成职位需求分布
     def get_work_data(self):
         work = """
         select * from 
